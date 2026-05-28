@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVIATION REFUELING - DYNAMIC ROWS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .tab-container { max-width: 1450px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        .tabs { 
+            display: flex; 
+            border-bottom: 2px solid #eee; 
+            margin-bottom: 20px; 
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 110; 
+        }
+        
+        .tab { padding: 10px 20px; cursor: pointer; font-weight: 600; color: #666; text-transform: uppercase; }
+        .tab.active { color: #007bff; border-bottom: 3px solid #007bff; background-color: #f0f7ff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .sheet2-layout { display: flex; gap: 20px; align-items: flex-start; }
+        .sidebar {
+            width: 280px; 
+            position: sticky;
+            top: 150px;
+            background: #fff;
+            border: 2px solid #2c3e50;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 11px;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.1);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .sidebar h4 { margin: 0 0 10px 0; text-align: center; background: #2c3e50; color: white; padding: 5px; font-size: 12px; }
+        
+        .sidebar-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .sidebar-section { margin-bottom: 15px; }
+        .sidebar-section h5 { margin: 5px 0; border-bottom: 1px solid #ddd; color: #007bff; font-size: 11px; text-align: center; }
+        .sidebar-row { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px dashed #eee; gap: 5px; }
+        .sidebar-row span:first-child { overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-row span:last-child { font-weight: bold; color: #2c3e50; }
+        
+        .ops-main-content { flex-grow: 1; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; text-transform: uppercase; }
+        
+        #sheet1 table {
+            table-layout: fixed;
+            width: 410px; 
+            margin-left: auto; 
+            margin-right: auto;
+        }
+        #sheet1 th:nth-child(1), #sheet1 td:nth-child(1) { width: 25px; }
+        .col-name { width: 60px; }
+        .col-count { width: 60px; background-color: #f9f9f9; font-weight: bold; color: #007bff; }
+
+        #sheet3 table, #printSheet3 table {
+            width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 20px;
+        }
+        
+        #sheet3 td, #printSheet3 td {
+            height: 21px !important;
+            padding: 2px 4px;
+        }
+
+        .label-col { background-color: #2c3e50; color: white; font-weight: bold; width: 100px; }
+
+        .sticky-controls {
+            position: sticky;
+            top: 43px; 
+            background: white;
+            padding: 10px 0;
+            z-index: 100;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+        }
+
+        #table2 { 
+            width: 780px; 
+            margin-left: auto; 
+            margin-right: auto; 
+            table-layout: fixed;
+        }
+
+        #table2 th:nth-child(1), #table2 td:nth-child(1) { width: 90px; }
+        #table2 th:nth-child(2), #table2 td:nth-child(2) { width: 30px; } 
+        #table2 th:nth-child(3), #table2 td:nth-child(3) { width: 30px; }
+        #table2 th:nth-child(4), #table2 td:nth-child(4) { width: 70px; }
+        #table2 th:nth-child(5), #table2 td:nth-child(5) { width: 40px; }
+        #table2 th:nth-child(6), #table2 td:nth-child(6) { width: 100px; }
+        #table2 th:nth-child(7), #table2 td:nth-child(7) { width: 50px; } 
+        #table2 th:nth-child(8), #table2 td:nth-child(8) { width: 50px; } 
+        #table2 th:nth-child(9), #table2 td:nth-child(9) { width: 60px; } 
+        #table2 th:nth-child(10), #table2 td:nth-child(10) { width: 60px; } 
+        #table2 th:nth-child(11), #table2 td:nth-child(11) { width: 60px; } 
+        #table2 th:nth-child(12), #table2 td:nth-child(12) { width: 60px; } 
+        #table2 th:nth-child(13), #table2 td:nth-child(13) { width: 90px; } 
+
+        th { 
+            background-color: #2c3e50; 
+            color: white; 
+            position: sticky; 
+            top: 101px; 
+            z-index: 90; 
+            white-space: normal; 
+            height: 38px; 
+            font-size: 11px; 
+        }
+
+        #table2 th.no-col-header, #table2 th.eta-col-header {
+            background-color: black !important;
+            color: white !important;
+        }
+
+        td { 
+            border: 1px solid #ddd; 
+            padding: 6px 4px; 
+            text-align: center; 
+            font-size: 12px; 
+            font-weight: bold;
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            text-transform: uppercase; 
+        }
+
+        #table2 td {
+            height: 38px; 
+            box-sizing: border-box;
+            vertical-align: middle;
+        }
+
+        #table2 td:nth-child(4) {
+            white-space: pre-wrap; 
+            word-wrap: break-word;
+            line-height: 1.2;
+        }
+        
+        td[contenteditable="true"] { outline: none; background-color: #fff; }
+        td[contenteditable="true"]:focus { 
+            background-color: #fffde7; 
+            border: 1px solid #007bff;
+            overflow: visible; 
+        }
+
+        .dropdown-cell input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            outline: none;
+            text-transform: uppercase;
+        }
+        
+        .selected-cell {
+            background-color: #e3f2fd !important;
+            outline: 2px solid #007bff !important;
+            z-index: 5;
+        }
+
+        .eta-col { background-color: #eef2f7 !important; font-weight: bold; }
+        .eta-error { background-color: #ffcccc !important; color: #d9534f; }
+
+        /* Locked Row Styling */
+        .locked-row { background-color: #fff9c4 !important; }
+        .locked-row td { background-color: #fff9c4 !important; color: #795548; }
+
+        .btn-group { display: flex; gap: 4px; justify-content: center; }
+        .ins-btn { background-color: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .del-btn { background-color: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        
+        .print-btn { background-color: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        .undo-btn { background-color: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-weight: bold; text-transform: uppercase; }
+        .redo-btn { background-color: #17a2b8; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 5px; font-weight: bold; text-transform: uppercase; }
+        
+        .copy-btn { background-color: #6f42c1; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 5px; font-weight: bold; text-transform: uppercase; }
+        .paste-btn { background-color: #fd7e14; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 5px; font-weight: bold; text-transform: uppercase; }
+        
+        .clear-btn { background-color: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin-left: 10px; font-weight: bold; text-transform: uppercase; }
+        
+        .action-col { background: #fafafa; }
+        .no-col { font-weight: bold; background-color: #f4f4f4; }
+        
+        .main-header { text-align: center; color: #2c3e50; font-size: 20px; font-weight: bold; margin: 0; text-transform: uppercase; }
+        .work-schedule-title { text-align: center; color: #2c3e50; font-size: 27px; font-weight: bold; margin: 5px 0 5px 0; text-transform: uppercase; }
+
+        .date-container { text-align: center; margin-bottom: 15px; font-weight: bold; font-size: 16px; }
+        .date-input, .shift-select { border: 1px solid #ddd; padding: 5px; border-radius: 4px; font-family: inherit; font-weight: bold; text-transform: uppercase; }
+
+        .box { max-width: 700px; margin: auto; background: white; padding: 25px; border: 1px solid #ddd; border-radius: 4px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .box label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
+        .box select, .box input, .box button { width: 100%; padding: 8px; box-sizing: border-box; }
+        .get-flights-btn { background: #333; color: white; border: none; padding: 12px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+        .get-flights-btn:hover { background: #000; }
+        .import-btn { background: #28a745; color: white; border: none; padding: 12px; cursor: pointer; font-weight: bold; margin-top: 5px; }
+        .import-btn:hover { background: #218838; }
+        #resultTable { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: auto; }
+        #resultTable th { border-bottom: 2px solid #333; text-align: left; padding: 10px; position: static; background: transparent; color: black; }
+        #resultTable td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
+        .day-label { font-size: 0.75em; color: #888; text-transform: uppercase; }
+
+        #printSheet3 { display: none; }
+        #printSheet3.show-print { display: block !important; margin-top: 20px; }
+
+        @media print {
+            @page { 
+                size: A4 portrait; 
+                margin: 1.5in 10mm 20mm 10mm; /* 2 වන පිටුවේ සිට ඉහළ මායිම 1.5in */
+            }
+            @page :first {
+                margin-top: 10mm; /* පළමු පිටුවේ ඉහළ මායිම වෙනස් නොකර 10mm ලෙසම තබා ඇත */
+            }
+            .sticky-controls, .undo-btn, .redo-btn, .copy-btn, .paste-btn, .clear-btn, .action-col, .btn-group, .tabs, .print-btn, #sheet1, #sheet3, #sheet4, .date-input, .shift-select, .sidebar { display: none !important; }
+            #sheet2 { display: block !important; }
+            .tab-container { box-shadow: none; padding: 0; width: 100%; max-width: none; }
+            #table2 { width: 100% !important; margin: 0; table-layout: fixed; }
+            .date-display { display: block !important; text-align: center; margin-bottom: 10px; font-weight: bold; text-transform: uppercase; }
+            th { top: 0 !important; background-color: #2c3e50 !important; color: white !important; -webkit-print-color-adjust: exact; height: 38px !important; }
+            th.no-col-header, th.eta-col-header { background-color: black !important; color: white !important; -webkit-print-color-adjust: exact; }
+            #printSheet3 .label-col { background-color: black !important; color: white !important; -webkit-print-color-adjust: exact; }
+            #table2 td.eta-col { background-color: transparent !important; color: black !important; }
+            td { font-size: 14px; border: 1px solid #000; height: 38px !important; text-transform: uppercase; font-weight: bold; }
+            .dropdown-cell input { border: none; font-size: 14px; font-weight: bold; width: 100%; box-sizing: border-box; }
+            #table2 td:nth-child(4) { white-space: pre-wrap !important; word-wrap: break-word; }
+            body { padding: 0; background: white; }
+            /* HIDE EMPTY ROWS ON PRINT */
+            tr.hide-on-print { display: none !important; }
+            
+            .locked-row, .locked-row td { 
+                background-color: transparent !important; 
+                color: black !important;
+                -webkit-print-color-adjust: exact; 
+            }
+        }
+        .date-display { display: none; }
+        .transport-toggle { text-align: center; margin-bottom: 15px; font-weight: bold; }
+        .transport-toggle input { transform: scale(1.5); margin-right: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="tab-container">
+    <div class="tabs">
+        <div class="tab active" onclick="openTab(event, 'sheet1')">SHEET 1 (STAFF)</div>
+        <div class="tab" onclick="openTab(event, 'sheet2')">SHEET 2 (OPERATIONS)</div>
+        <div class="tab" onclick="openTab(event, 'sheet3')">SHEET 3 (TRANSPORT)</div>
+        <div class="tab" onclick="openTab(event, 'sheet4')">SHEET 4 (SCHEDULE)</div>
+    </div>
+
+    <datalist id="ricList"></datalist>
+    <datalist id="oprtList"></datalist>
+    <datalist id="crewList"></datalist>
+
+    <div id="sheet1" class="tab-content active">
+        <h3>STAFF ALLOCATION</h3>
+        <div style="text-align: center; margin-bottom: 10px;">
+            <button class="undo-btn" onclick="undoSheet1()">UNDO</button>
+            <button class="clear-btn" onclick="clearSheet1Data()">CLEAR ALL STAFF</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th rowspan="2" style="width: 25px;">NO</th>
+                    <th colspan="2">RIC</th>
+                    <th colspan="2">OPERATOR</th>
+                    <th colspan="2">CREWMAN</th>
+                </tr>
+                <tr>
+                    <th class="col-name">NAME</th>
+                    <th class="col-count">COUNT</th> 
+                    <th class="col-name">NAME</th>
+                    <th class="col-count">COUNT</th>
+                    <th class="col-name">NAME</th>
+                    <th class="col-count">COUNT</th>
+                </tr>
+            </thead>
+            <tbody id="sheet1Body"></tbody>
+        </table>
+    </div>
+
+    <div id="sheet2" class="tab-content">
+        <div class="sticky-controls">
+            <button class="print-btn" onclick="prepareAndPrint()">PRINT REPORT</button>
+            <button class="undo-btn" onclick="undoSheet2()">UNDO</button>
+            <button class="redo-btn" onclick="redoSheet2()">REDO</button>
+            
+            <button class="copy-btn" onclick="copyMultiSelect()">COPY SELECTION</button>
+            <button class="paste-btn" onclick="pasteMultiSelect()">PASTE SELECTION</button>
+            
+            <button class="clear-btn" onclick="clearFlightData()">CLEAR FLIGHT DATA</button>
+            <button class="clear-btn" onclick="clearCrewData()">CLEAR CREW DATA</button>
+        </div>
+
+        <div class="sheet2-layout">
+            <div class="sidebar" id="staffSidebar">
+                <h4>STAFF SUMMARY</h4>
+                <div id="sidebarContent"></div>
+            </div>
+
+            <div class="ops-main-content">
+                <p class="main-header">CEYLON PETROLEUM CORPORATION-AVIATION FUNCTION</p>
+                <p class="work-schedule-title">DAILY WORK SCHEDULE</p>
+
+                <div class="date-container">
+                    DATE: <input type="date" id="scheduleDate" class="date-input" onchange="updateDateDisplay()">
+                    SHIFT: 
+                    <select id="shiftSelect" class="shift-select" onchange="saveShift()">
+                        <option value="DAY">DAY</option>
+                        <option value="NIGHT">NIGHT</option>
+                    </select>
+                    <span id="dateText" class="date-display"></span>
+                </div>
+
+                <table id="table2">
+                    <thead>
+                        <tr>
+                            <th class="action-col">ACTION</th>
+                            <th class="no-col-header">NO</th>
+                            <th>BAY NO</th>
+                            <th>FLIGHT NO</th>
+                            <th class="eta-col-header">ETA (24H)</th>
+                            <th>AIRLINE</th>
+                            <th>RIC</th>
+                            <th>OPRT</th>
+                            <th>CREWMAN 1</th>
+                            <th>CREWMAN 2</th>
+                            <th>CREWMAN 3</th>
+                            <th>REMARKS</th>
+                            <th class="action-col">ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sheet2Body"></tbody>
+                </table>
+                <div class="signature-section" style="margin-top: 50px; text-align: left; font-weight: bold; text-transform: uppercase; font-size: 14px; margin-left: 10px;">
+                    <span>..........................................</span><br>
+                    <span>SUPERINTENDENT SIGNATURE</span>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="printSheet3">
+            <h3 style="text-align: center; margin-top: 20px;">TRANSPORT MANAGEMENT</h3>
+            <table>
+                <tbody id="printSheet3Body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="sheet3" class="tab-content">
+        <h3>TRANSPORT MANAGEMENT</h3>
+        <div class="transport-toggle">
+            <label>
+                <input type="checkbox" id="includeTransportCheck" onchange="toggleTransportInPrint()"> 
+                INCLUDE TRANSPORT MANAGEMENT IN PRINT REPORT
+            </label>
+        </div>
+        <table>
+            <tbody id="sheet3Body"></tbody>
+        </table>
+    </div>
+
+    <div id="sheet4" class="tab-content">
+        <div class="box">
+            <h2>Flight Schedule Filter</h2>
+            
+            <label>Upload CSV</label>
+            <input type="file" id="csvFile" accept=".csv" style="margin-bottom:20px;">
+
+            <div class="grid">
+                <div>
+                    <label>Start Day</label>
+                    <select id="sDay">
+                        <option value="0">Monday</option><option value="1">Tuesday</option>
+                        <option value="2">Wednesday</option><option value="3">Thursday</option>
+                        <option value="4">Friday</option><option value="5">Saturday</option>
+                        <option value="6" selected>Sunday</option>
+                    </select>
+                    <label style="margin-top:10px;">Start Time</label>
+                    <input type="time" id="sTime" value="19:00">
+                </div>
+                <div>
+                    <label>End Day</label>
+                    <select id="eDay">
+                        <option value="0" selected>Monday</option><option value="1">Tuesday</option>
+                        <option value="2">Wednesday</option><option value="3">Thursday</option>
+                        <option value="4">Friday</option><option value="5">Saturday</option>
+                        <option value="6">Sunday</option>
+                    </select>
+                    <label style="margin-top:10px;">End Time</label>
+                    <input type="time" id="eTime" value="07:00">
+                </div>
+            </div>
+
+            <button class="get-flights-btn" onclick="filterSchedule()">GET FLIGHTS</button>
+            <button class="import-btn" onclick="importToSheet2()">IMPORT TO SHEET 2</button>
+
+            <table id="resultTable" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Flight No</th>
+                        <th>ETD</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    let historyStackS1 = [];
+    let historyStackS2 = [];
+    let redoStackS2 = [];
+    let enterKeyPressCount = 0;
+    
+    let selectedCells = new Set();
+    let clipboardData = [];
+    let lastSelectedCell = null;
+
+    const airlineMap = {
+        "SU": "AEROFLOT", "G9": "AIR ARABIA", "AK": "AIR ASIA", "CA": "AIR CHINA",
+        "AI": "AIR INDIA", "ZF": "AZUR AIR", "CX": "CATHAY PASIFIC", "MU": "CHINA EASTERN",
+        "CZ": "CHINA SOUTHERN", "OQ": "CHONGQING", "CIN": "CINNAMON", "WK": "EDELWEISS",
+        "EK": "EMIRATES", "EY": "ETIHAD", "8D": "FITS", "FZ": "FLY DUBAI",
+        "GF": "GULF AIR", "6E": "INDIGO", "Q2": "ISLAND AVIATION", "J9": "JAZEERA",
+        "KE": "KOREAN", "LO": "LOT POLISH", "MH": "MALAYSIAN", "WY": "OMAN",
+        "QR": "QATAR", "OV": "SALAM AIR", "SV": "SAUDIA", "SQ": "SINGAPORE",
+        "SG": "SPICE JET", "UL": "SRI LANKAN", "FD": "THAI AIR ASIA", "TG": "THAI AIRWAYS",
+        "SL": "THAI LION", "TK": "TURKISH", "3L": "AIR ARABIA ABUDHABI", "3K": "JET STAR",
+        "HM": "AIR SEYCHELLES", "NC": "NATIONAL AIRLINES", "MP": "AFCOM HOLDINGS",
+        "SF": "SF AIRLINES", "OD": "BATIK AIR", "W1": "WAGON 1", "W2": "WAGON 2", "W3": "WAGON 3", 
+        "W4": "WAGON 4", "LP": "LOW POINT", "VW": "VEHICLE WASH", "KU": "KUWAIT"
+    };
+
+    const DAYS = { 'MONDAY': 0, 'TUESDAY': 1, 'WEDNESDAY': 2, 'THURSDAY': 3, 'FRIDAY': 4, 'SATURDAY': 5, 'SUNDAY': 6 };
+
+    function toHours(t) {
+        if(!t || !t.includes(':')) return 0;
+        const [h, m] = t.split(':').map(Number);
+        return h + (m / 60);
+    }
+
+    function isLocked(row) {
+        if (!row) return false;
+        const flightNoCell = row.cells[3];
+        const flightNo = (flightNoCell.querySelector('input') ? flightNoCell.querySelector('input').value : flightNoCell.innerText).trim().toUpperCase();
+        
+        const lockedKeys = ['W1', 'W2', 'W3', 'W4', 'LP', 'VW'];
+        const locked = lockedKeys.some(key => flightNo === key || flightNo.startsWith(key + " ") || flightNo.includes(" " + key));
+        
+        if (locked) row.classList.add('locked-row');
+        else row.classList.remove('locked-row');
+        
+        return locked;
+    }
+
+    function handleCellClick(e) {
+        const cell = e.target.closest('td');
+        if (!cell || cell.classList.contains('action-col') || cell.classList.contains('no-col')) return;
+
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            clearSelection();
+            selectCell(cell);
+        } else if (e.shiftKey && lastSelectedCell) {
+            selectRange(lastSelectedCell, cell);
+        } else {
+            toggleCellSelection(cell);
+        }
+        lastSelectedCell = cell;
+    }
+
+    function selectCell(cell) {
+        cell.classList.add('selected-cell');
+        selectedCells.add(cell);
+    }
+
+    function toggleCellSelection(cell) {
+        if (selectedCells.has(cell)) {
+            cell.classList.remove('selected-cell');
+            selectedCells.delete(cell);
+        } else {
+            selectCell(cell);
+        }
+    }
+
+    function selectRange(start, end) {
+        clearSelection();
+        const table = start.closest('table');
+        const startRow = start.parentElement.rowIndex;
+        const endRow = end.parentElement.rowIndex;
+        const startCol = start.cellIndex;
+        const endCol = end.cellIndex;
+
+        const minR = Math.min(startRow, endRow), maxR = Math.max(startRow, endRow);
+        const minC = Math.min(startCol, endCol), maxC = Math.max(startCol, endCol);
+
+        for (let r = minR; r <= maxR; r++) {
+            const row = table.rows[r];
+            for (let c = minC; c <= maxC; c++) {
+                const target = row.cells[c];
+                if (target && !target.classList.contains('action-col') && !target.classList.contains('no-col')) {
+                    selectCell(target);
+                }
+            }
+        }
+    }
+
+    function clearSelection() {
+        selectedCells.forEach(cell => cell.classList.remove('selected-cell'));
+        selectedCells.clear();
+    }
+
+    function copyMultiSelect() {
+        if (selectedCells.size === 0) return alert("Select cells first (Ctrl/Cmd + Click)");
+        
+        const sorted = Array.from(selectedCells).sort((a, b) => {
+            const rA = a.parentElement.rowIndex, rB = b.parentElement.rowIndex;
+            return rA !== rB ? rA - rB : a.cellIndex - b.cellIndex;
+        });
+
+        const startR = sorted[0].parentElement.rowIndex;
+        const startC = sorted[0].cellIndex;
+
+        clipboardData = sorted.map(cell => ({
+            relR: cell.parentElement.rowIndex - startR,
+            relC: cell.cellIndex - startC,
+            val: cell.querySelector('input') ? cell.querySelector('input').value : cell.innerText
+        }));
+    }
+
+    function pasteMultiSelect() {
+        if (clipboardData.length === 0) return alert("Nothing copied to clipboard.");
+        
+        let anchor = document.activeElement.closest('td') || lastSelectedCell;
+        if (!anchor) return alert("Select a target cell to paste.");
+
+        saveStateS2();
+        const table = anchor.closest('table');
+        const anchorR = anchor.parentElement.rowIndex;
+        const anchorC = anchor.cellIndex;
+
+        clipboardData.forEach(item => {
+            const targetR = anchorR + item.relR;
+            const targetC = anchorC + item.relC;
+            const row = table.rows[targetR];
+            if (row) {
+                const cell = row.cells[targetC];
+                if (cell && !cell.classList.contains('action-col') && !cell.classList.contains('no-col')) {
+                    const input = cell.querySelector('input');
+                    if (input) input.value = item.val.toUpperCase();
+                    else cell.innerText = item.val.toUpperCase();
+                }
+            }
+        });
+        saveData();
+    }
+
+    function filterSchedule() {
+        const file = document.getElementById('csvFile').files[0];
+        if (!file) return alert("Please upload a CSV file");
+
+        const startFull = (parseInt(document.getElementById('sDay').value) * 24) + toHours(document.getElementById('sTime').value);
+        const endFull = (parseInt(document.getElementById('eDay').value) * 24) + toHours(document.getElementById('eTime').value);
+        const wraps = endFull < startFull;
+
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                const filtered = results.data.filter(row => {
+                    const rowVal = (DAYS[row.Day.toUpperCase()] * 24) + toHours(row.ETD.substring(0, 5));
+                    return wraps ? (rowVal >= startFull || rowVal <= endFull) : (rowVal >= startFull && rowVal <= endFull);
+                });
+                
+                filtered.sort((a, b) => {
+                    const valA = (DAYS[a.Day.toUpperCase()] * 24) + toHours(a.ETD.substring(0, 5));
+                    const valB = (DAYS[b.Day.toUpperCase()] * 24) + toHours(b.ETD.substring(0, 5));
+                    return valA - valB;
+                });
+                showFilteredFlights(filtered);
+            }
+        });
+    }
+
+    function showFilteredFlights(data) {
+        const tbody = document.getElementById('tableBody');
+        document.getElementById('resultTable').style.display = "table";
+        tbody.innerHTML = data.map(r => `
+            <tr>
+                <td><strong>${r.Flight_No}</strong> <span class="day-label">(${r.Day.substring(0,3)})</span></td>
+                <td>${r.ETD.substring(0, 5)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function importToSheet2() {
+        const resultRows = document.querySelectorAll('#tableBody tr');
+        if (resultRows.length === 0) return alert("No flights to import. Please 'Get Flights' first.");
+        if (!confirm(`Import ${resultRows.length} flights to Sheet 2 with auto-calculated ETA?`)) return;
+
+        saveStateS2();
+        const tbody = document.getElementById('sheet2Body');
+        let s2Rows = Array.from(tbody.rows);
+        
+        let availableRows = s2Rows.filter(r => r.cells[3].innerText.trim() === "");
+
+        let neededRows = resultRows.length - availableRows.length;
+        if (neededRows > 0) {
+            let currentTotal = s2Rows.length;
+            let canAdd = Math.min(neededRows, 100 - currentTotal);
+            for (let i = 0; i < canAdd; i++) {
+                createDynamicRow(tbody);
+            }
+            updateRowNumbers(tbody);
+            s2Rows = Array.from(tbody.rows);
+            availableRows = s2Rows.filter(r => r.cells[3].innerText.trim() === "");
+        }
+
+        let targetIdx = 0;
+        resultRows.forEach((row) => {
+            if (targetIdx >= availableRows.length) return;
+
+            const flightRaw = row.cells[0].innerText;
+            const flightNo = flightRaw.split('(')[0].trim().toUpperCase();
+            const etdStr = row.cells[1].innerText.substring(0, 5);
+            let reduceMins = 65; 
+            if (flightNo.startsWith("UL1")) reduceMins = 65;
+            else if (flightNo.startsWith("UL2") || flightNo.startsWith("UL3") || flightNo.startsWith("UL4")) reduceMins = 70;
+            else if (flightNo.startsWith("UL5") || flightNo.startsWith("UL6")) reduceMins = 75;
+            else if (flightNo.startsWith("QR") || flightNo.startsWith("EK")) reduceMins = 85;
+            else if (flightNo.startsWith("TK")) reduceMins = 90;
+            else if (flightNo.startsWith("EY") || flightNo.startsWith("GF")) reduceMins = 80;
+
+            let [h, m] = etdStr.split(':').map(Number);
+            let totalMins = (h * 60) + m;
+            let etaTotalMins = totalMins - reduceMins;
+            if (etaTotalMins < 0) etaTotalMins += 1440; 
+            let etaH = Math.floor(etaTotalMins / 60);
+            let etaM = etaTotalMins % 60;
+            let etaStr = String(etaH).padStart(2, '0') + ":" + String(etaM).padStart(2, '0');
+            
+            availableRows[targetIdx].cells[3].innerText = flightNo;
+            availableRows[targetIdx].cells[4].innerText = etaStr;
+            autoFillAirline(availableRows[targetIdx].cells[3]);
+            targetIdx++;
+        });
+        
+        sortFlightData(); 
+        openTab({currentTarget: document.querySelectorAll('.tab')[1]}, 'sheet2');
+        saveData();
+    }
+
+    function toggleTransportInPrint() {
+        const check = document.getElementById('includeTransportCheck');
+        const printTable = document.getElementById('printSheet3');
+        if (check.checked) printTable.classList.add('show-print');
+        else printTable.classList.remove('show-print');
+        localStorage.setItem('refueling_transport_check', check.checked);
+    }
+
+    function setupBoxDelete(element) {
+        element.addEventListener('keydown', function(e) {
+            if (e.key === 'Delete') {
+                if (this.tagName === 'INPUT') this.value = ''; else this.innerText = '';
+                saveData(); e.preventDefault(); 
+            }
+        });
+    }
+
+    function updateDateDisplay() {
+        const dateInput = document.getElementById('scheduleDate');
+        const shiftSelect = document.getElementById('shiftSelect');
+        const dateText = document.getElementById('dateText');
+        if (dateInput.value) {
+            const date = new Date(dateInput.value);
+            const options = { day: 'numeric', month: 'long', year: 'numeric' };
+            dateText.innerText = `DATE: ${date.toLocaleDateString('en-GB', options).toUpperCase()} - SHIFT: ${shiftSelect.value}`;
+            localStorage.setItem('refueling_date', dateInput.value);
+        }
+    }
+
+    function saveShift() { localStorage.setItem('refueling_shift', document.getElementById('shiftSelect').value); updateDateDisplay(); }
+
+    function saveStateS1() {
+        const sheet1Rows = Array.from(document.querySelectorAll('#sheet1Body tr')).map(row => [row.cells[1].innerText, row.cells[3].innerText, row.cells[5].innerText]);
+        if (historyStackS1.length >= 20) historyStackS1.shift();
+        historyStackS1.push(JSON.stringify(sheet1Rows));
+    }
+
+    function undoSheet1() {
+        if (historyStackS1.length > 0) {
+            const previousState = JSON.parse(historyStackS1.pop());
+            const rows = document.querySelectorAll('#sheet1Body tr');
+            previousState.forEach((rowData, i) => {
+                if (rows[i]) { rows[i].cells[1].innerText = rowData[0]; rows[i].cells[3].innerText = rowData[1]; rows[i].cells[5].innerText = rowData[2]; }
+            });
+            saveData();
+        }
+    }
+
+    function clearSheet1Data() {
+        if(confirm("ARE YOU SURE?")) {
+            saveStateS1();
+            document.querySelectorAll('#sheet1Body tr').forEach(row => { row.cells[1].innerText = ""; row.cells[3].innerText = ""; row.cells[5].innerText = ""; });
+            saveData();
+        }
+    }
+
+    function prepareAndPrint() {
+        const rows = document.querySelectorAll('#sheet2Body tr');
+        let lastFilledIndex = -1;
+        // Identify the last row that contains a flight (checking column 3, the FLIGHT NO column)
+        rows.forEach((row, index) => { 
+            if (row.cells[3].innerText.trim() !== "") lastFilledIndex = index; 
+        });
+        
+        // Hide all rows after the last flight, otherwise keep visible
+        rows.forEach((row, index) => { 
+            if (index > lastFilledIndex) row.classList.add('hide-on-print'); 
+            else row.classList.remove('hide-on-print'); 
+        });
+        
+        window.print();
+    }
+
+    function autoFillAirline(cell) {
+        const flightNo = cell.innerText.trim().toUpperCase();
+        const prefixes = Object.keys(airlineMap).sort((a, b) => b.length - a.length);
+        for (let prefix of prefixes) { if (flightNo.startsWith(prefix)) { cell.parentElement.cells[5].innerText = airlineMap[prefix]; return; } }
+    }
+
+    function syncSheet3ToPrint() { document.getElementById('printSheet3Body').innerHTML = document.getElementById('sheet3Body').innerHTML; }
+
+    function updateDropdowns() {
+        const ricNames = [], oprtNames = [], crewNames = [], ricMap = {}, oprtMap = {}, crewMap = {};
+        const ricListDetailed = [], oprtListDetailed = [], crewListDetailed = [];
+
+        document.querySelectorAll('#table2 tr').forEach(row => {
+            const rVal = row.cells[6]?.querySelector('input')?.value.trim().toUpperCase();
+            if (rVal) ricMap[rVal] = (ricMap[rVal] || 0) + 1;
+            const oVal = row.cells[7]?.querySelector('input')?.value.trim().toUpperCase();
+            if (oVal) oprtMap[oVal] = (oprtMap[oVal] || 0) + 1;
+            for(let i=8; i<=10; i++) {
+                const cVal = row.cells[i]?.querySelector('input')?.value.trim().toUpperCase();
+                if (cVal) crewMap[cVal] = (crewMap[cVal] || 0) + 1;
+            }
+        });
+
+        document.querySelectorAll('#sheet1Body tr').forEach(row => {
+            const r = row.cells[1].innerText.trim().toUpperCase(), o = row.cells[3].innerText.trim().toUpperCase(), c = row.cells[5].innerText.trim().toUpperCase();
+            row.cells[2].innerText = r ? (ricMap[r] || 0) : "";
+            row.cells[4].innerText = o ? (oprtMap[o] || 0) : "";
+            row.cells[6].innerText = c ? (crewMap[c] || 0) : "";
+            if (r) { ricNames.push(r); ricListDetailed.push({name: r, count: ricMap[r] || 0}); }
+            if (o) { oprtNames.push(o); oprtListDetailed.push({name: o, count: oprtMap[o] || 0}); }
+            if (c) { crewNames.push(c); crewListDetailed.push({name: c, count: crewMap[c] || 0}); }
+        });
+
+        updateDatalist('ricList', ricNames); updateDatalist('oprtList', oprtNames); updateDatalist('crewList', crewNames);
+        
+        let sidebarHTML = '';
+        sidebarHTML += `<div class="sidebar-grid">`;
+        sidebarHTML += `<div class="sidebar-section"><h5>RIC</h5>`;
+        ricListDetailed.forEach(item => { sidebarHTML += `<div class="sidebar-row"><span>${item.name}</span><span>${item.count}</span></div>`; });
+        sidebarHTML += `</div>`;
+        sidebarHTML += `<div class="sidebar-section"><h5>CREWMAN</h5>`;
+        crewListDetailed.forEach(item => { sidebarHTML += `<div class="sidebar-row"><span>${item.name}</span><span>${item.count}</span></div>`; });
+        sidebarHTML += `</div></div>`;
+        sidebarHTML += `<div class="sidebar-section"><h5>OPERATORS</h5>`;
+        oprtListDetailed.forEach(item => { sidebarHTML += `<div class="sidebar-row"><span>${item.name}</span><span>${item.count}</span></div>`; });
+        sidebarHTML += `</div>`;
+
+        document.getElementById('sidebarContent').innerHTML = sidebarHTML;
+    }
+
+    function updateDatalist(id, names) {
+        const list = document.getElementById(id); list.innerHTML = "";
+        [...new Set(names)].forEach(name => { const opt = document.createElement('option'); opt.value = name; list.appendChild(opt); });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const active = document.activeElement;
+            const cell = active.tagName === 'INPUT' ? active.parentElement : active;
+            if (cell.tagName !== 'TD') return;
+            const rowIndex = cell.parentElement.sectionRowIndex;
+            if (cell.parentElement.parentElement.id === 'sheet2Body' && cell.cellIndex === 3) { enterKeyPressCount++; if (enterKeyPressCount < 2) return; }
+            e.preventDefault();
+            const nextRow = cell.parentElement.parentElement.rows[rowIndex + 1];
+            if (nextRow) {
+                let target = nextRow.cells[cell.cellIndex].querySelector('input') || nextRow.cells[cell.cellIndex];
+                target.focus();
+            }
+            enterKeyPressCount = 0;
+        } else enterKeyPressCount = 0;
+    });
+
+    document.addEventListener('click', handleCellClick);
+
+    function saveStateS2() {
+        const data = Array.from(document.querySelectorAll('#sheet2Body tr')).map(row => Array.from(row.cells).slice(2, 12).map(c => c.querySelector('input')?.value || c.innerText));
+        if (historyStackS2.length >= 20) historyStackS2.shift();
+        historyStackS2.push(JSON.stringify(data));
+        redoStackS2 = [];
+    }
+
+    function clearFlightData() {
+        if(confirm("CLEAR FLIGHTS?")) {
+            saveStateS2();
+            document.querySelectorAll('#sheet2Body tr').forEach(row => { 
+                for(let j=2; j<=5; j++) row.cells[j].innerText = ""; 
+                row.cells[4].classList.remove('eta-error'); 
+                isLocked(row);
+            });
+            saveData();
+        }
+    }
+
+    function clearCrewData() {
+        if(confirm("CLEAR CREW?")) {
+            saveStateS2();
+            document.querySelectorAll('#sheet2Body tr').forEach(row => { 
+                for(let j=6; j<=10; j++) if(row.cells[j].querySelector('input')) row.cells[j].querySelector('input').value = ""; 
+                row.cells[11].innerText = ""; 
+            });
+            saveData();
+        }
+    }
+
+    function undoSheet2() {
+        if (historyStackS2.length > 0) {
+            const currentData = Array.from(document.querySelectorAll('#sheet2Body tr')).map(row => Array.from(row.cells).slice(2, 12).map(c => c.querySelector('input')?.value || c.innerText));
+            redoStackS2.push(JSON.stringify(currentData));
+            const prev = JSON.parse(historyStackS2.pop());
+            
+            const tbody = document.getElementById('sheet2Body');
+            while (tbody.rows.length < prev.length) createDynamicRow(tbody);
+            while (tbody.rows.length > prev.length) tbody.deleteRow(-1);
+            
+            applyStateToSheet2(prev);
+            updateRowNumbers(tbody);
+            saveData();
+        }
+    }
+
+    function redoSheet2() {
+        if (redoStackS2.length > 0) {
+            const currentData = Array.from(document.querySelectorAll('#sheet2Body tr')).map(row => Array.from(row.cells).slice(2, 12).map(c => c.querySelector('input')?.value || c.innerText));
+            historyStackS2.push(JSON.stringify(currentData));
+            const next = JSON.parse(redoStackS2.pop());
+            
+            const tbody = document.getElementById('sheet2Body');
+            while (tbody.rows.length < next.length) createDynamicRow(tbody);
+            while (tbody.rows.length > next.length) tbody.deleteRow(-1);
+
+            applyStateToSheet2(next);
+            updateRowNumbers(tbody);
+            saveData();
+        }
+    }
+
+    function applyStateToSheet2(data) {
+        const rows = document.querySelectorAll('#sheet2Body tr');
+        data.forEach((rowData, i) => {
+            if (rows[i]) rowData.forEach((text, j) => {
+                const cell = rows[i].cells[j+2]; if (!cell) return;
+                if (cell.querySelector('input')) cell.querySelector('input').value = text; else cell.innerText = text;
+            });
+            isLocked(rows[i]);
+        });
+    }
+
+    function saveData() {
+        const s1 = Array.from(document.querySelectorAll('#sheet1Body tr')).map(r => [r.cells[1].innerText.toUpperCase(), r.cells[3].innerText.toUpperCase(), r.cells[5].innerText.toUpperCase()]);
+        const s2 = Array.from(document.querySelectorAll('#sheet2Body tr')).map(r => Array.from(r.cells).slice(2, 12).map(c => (c.querySelector('input')?.value || c.innerText).toUpperCase()));
+        const s3 = Array.from(document.querySelectorAll('#sheet3Body tr')).map(r => Array.from(r.cells).map(c => c.innerText.toUpperCase()));
+        localStorage.setItem('refueling_sheet1', JSON.stringify(s1));
+        localStorage.setItem('refueling_sheet2', JSON.stringify(s2));
+        localStorage.setItem('refueling_sheet3', JSON.stringify(s3));
+        updateDropdowns(); syncSheet3ToPrint();
+    }
+
+    function loadData() {
+        const s1 = JSON.parse(localStorage.getItem('refueling_sheet1')), s2 = JSON.parse(localStorage.getItem('refueling_sheet2')), s3 = JSON.parse(localStorage.getItem('refueling_sheet3')), d = localStorage.getItem('refueling_date'), sh = localStorage.getItem('refueling_shift'), tc = localStorage.getItem('refueling_transport_check') === 'true';
+        if (sh) document.getElementById('shiftSelect').value = sh;
+        if (d) { document.getElementById('scheduleDate').value = d; updateDateDisplay(); }
+        const s2Body = document.getElementById('sheet2Body');
+        if (s2) {
+            let targetLength = Math.max(50, Math.min(100, s2.length));
+            while (s2Body.rows.length < targetLength) { createDynamicRow(s2Body); }
+            while (s2Body.rows.length > targetLength) { s2Body.deleteRow(-1); }
+            const rs = s2Body.rows;
+            s2.forEach((rd, i) => { if (rs[i]) rd.forEach((t, j) => { const c = rs[i].cells[j+2]; if (c?.querySelector('input')) c.querySelector('input').value = t; else if(c) c.innerText = t; }); isLocked(rs[i]); });
+        }
+        if (s1) { const rs = document.querySelectorAll('#sheet1Body tr'); s1.forEach((rd, i) => { if (rs[i]) { rs[i].cells[1].innerText = rd[0]; rs[i].cells[3].innerText = rd[1]; rs[i].cells[5].innerText = rd[2]; } }); }
+        if (s3) { const rs = document.querySelectorAll('#sheet3Body tr'); s3.forEach((rd, i) => { if (rs[i]) rd.forEach((t, j) => { if (rs[i].cells[j]) rs[i].cells[j].innerText = t; }); }); }
+        document.getElementById('includeTransportCheck').checked = tc;
+        updateRowNumbers(s2Body); toggleTransportInPrint(); updateDropdowns();
+    }
+
+    function openTab(evt, tabName) {
+        document.querySelectorAll(".tab-content").forEach(t => t.classList.remove("active"));
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+        clearSelection();
+    }
+
+    function sortFlightData() {
+        saveStateS2();
+        const rows = Array.from(document.getElementById('sheet2Body').rows);
+        
+        const rowDataMap = rows.map(r => {
+            return {
+                bayNo: r.cells[2].innerText,
+                flightNo: r.cells[3].innerText,
+                eta: r.cells[4].innerText,
+                airline: r.cells[5].innerText,
+                ric: r.cells[6].querySelector('input')?.value || "",
+                oprt: r.cells[7].querySelector('input')?.value || "",
+                c1: r.cells[8].querySelector('input')?.value || "",
+                c2: r.cells[9].querySelector('input')?.value || "",
+                c3: r.cells[10].querySelector('input')?.value || "",
+                remarks: r.cells[11].innerText,
+                isRowLocked: isLocked(r)
+            };
+        });
+
+        const sortArray = rowDataMap.map((data, index) => {
+            const sortVal = data.eta.replace(':', '').trim();
+            return { originalIndex: index, sortVal: sortVal };
+        });
+
+        sortArray.sort((a, b) => {
+            if (a.sortVal === "" && b.sortVal === "") return 0;
+            if (a.sortVal === "") return 1;
+            if (b.sortVal === "") return -1;
+            
+            let vA = parseInt(a.sortVal), vB = parseInt(b.sortVal);
+            let timeA = (vA >= 0 && vA <= 659) ? vA + 2400 : vA;
+            let timeB = (vB >= 0 && vB <= 659) ? vB + 2400 : vB;
+            return timeA - timeB;
+        });
+
+        let finalFlightsLayout = new Array(rows.length);
+        sortArray.forEach((item, targetIndex) => {
+            const sourceData = rowDataMap[item.originalIndex];
+            finalFlightsLayout[targetIndex] = {
+                bayNo: sourceData.bayNo,
+                flightNo: sourceData.flightNo,
+                eta: sourceData.eta,
+                airline: sourceData.airline,
+                isSourceLocked: sourceData.isRowLocked,
+                sourceIndex: item.originalIndex
+            };
+        });
+
+        let staticCrewData = rowDataMap.filter(d => !d.isRowLocked);
+
+        let unpinnedStaffPointer = 0;
+        rows.forEach((row, index) => {
+            const flightInfo = finalFlightsLayout[index];
+
+            row.cells[2].innerText = flightInfo.bayNo;
+            row.cells[3].innerText = flightInfo.flightNo;
+            row.cells[4].innerText = flightInfo.eta;
+            row.cells[5].innerText = flightInfo.airline;
+
+            if (flightInfo.isSourceLocked) {
+                const exactSourceObj = rowDataMap[flightInfo.sourceIndex];
+                row.cells[6].querySelector('input').value = exactSourceObj.ric;
+                row.cells[7].querySelector('input').value = exactSourceObj.oprt;
+                row.cells[8].querySelector('input').value = exactSourceObj.c1;
+                row.cells[9].querySelector('input').value = exactSourceObj.c2;
+                row.cells[10].querySelector('input').value = exactSourceObj.c3;
+                row.cells[11].innerText = exactSourceObj.remarks;
+            } else {
+                if (unpinnedStaffPointer < staticCrewData.length) {
+                    const matchedCrewObj = staticCrewData[unpinnedStaffPointer];
+                    row.cells[6].querySelector('input').value = matchedCrewObj.ric;
+                    row.cells[7].querySelector('input').value = matchedCrewObj.oprt;
+                    row.cells[8].querySelector('input').value = matchedCrewObj.c1;
+                    row.cells[9].querySelector('input').value = matchedCrewObj.c2;
+                    row.cells[10].querySelector('input').value = matchedCrewObj.c3;
+                    row.cells[11].innerText = matchedCrewObj.remarks;
+                    unpinnedStaffPointer++;
+                } else {
+                    row.cells[6].querySelector('input').value = "";
+                    row.cells[7].querySelector('input').value = "";
+                    row.cells[8].querySelector('input').value = "";
+                    row.cells[9].querySelector('input').value = "";
+                    row.cells[10].querySelector('input').value = "";
+                    row.cells[11].innerText = "";
+                }
+            }
+            isLocked(row);
+        });
+
+        saveData();
+    }
+
+    function formatETA(cell) {
+        let val = cell.innerText.replace(/:/g, '').trim();
+        if (val === "") { cell.classList.remove('eta-error'); sortFlightData(); return; }
+        if (val.length === 3) val = "0" + val;
+        if (val.length === 4) {
+            let h = parseInt(val.substring(0, 2)), m = parseInt(val.substring(2, 4));
+            if (h >= 0 && h < 24 && m >= 0 && m < 60) { cell.innerText = val.substring(0, 2) + ":" + val.substring(2, 4); cell.classList.remove('eta-error'); sortFlightData(); }
+            else cell.classList.add('eta-error');
+        } else cell.classList.add('eta-error');
+    }
+
+    function insertRowAt(btn) {
+        const tbody = document.getElementById('sheet2Body');
+        
+        if (tbody.rows.length >= 100) {
+            alert("MAXIMUM LIMIT OF 100 ROWS REACHED.");
+            return;
+        }
+
+        saveStateS2();
+        const row = btn.closest('tr');
+        const idx = row.sectionRowIndex;
+        const isLeftAction = btn.closest('td').cellIndex === 0;
+
+        createDynamicRow(tbody);
+        updateRowNumbers(tbody);
+        
+        const rows = Array.from(tbody.rows);
+
+        let dataToShift = [];
+        for (let i = idx; i < rows.length - 1; i++) {
+            if (!isLocked(rows[i])) {
+                let rowData = [];
+                if (isLeftAction) {
+                    for (let j = 2; j <= 5; j++) rowData.push(rows[i].cells[j].innerText);
+                } else {
+                    for (let j = 6; j <= 11; j++) {
+                        rowData.push(rows[i].cells[j].querySelector('input')?.value || rows[i].cells[j].innerText);
+                    }
+                }
+                dataToShift.push(rowData);
+            }
+        }
+
+        let dataPtr = 0;
+        for (let i = idx; i < rows.length; i++) {
+            if (!isLocked(rows[i])) {
+                if (i === idx) {
+                    if (isLeftAction) {
+                        for (let j = 2; j <= 5; j++) rows[i].cells[j].innerText = "";
+                    } else {
+                        for (let j = 6; j <= 10; j++) rows[i].cells[j].querySelector('input').value = "";
+                        rows[i].cells[11].innerText = "";
+                    }
+                } else if (dataPtr < dataToShift.length) {
+                    let d = dataToShift[dataPtr];
+                    if (isLeftAction) {
+                        for (let j = 2; j <= 5; j++) rows[i].cells[j].innerText = d[j-2];
+                    } else {
+                        for (let j = 6; j <= 10; j++) rows[i].cells[j].querySelector('input').value = d[j-6];
+                        rows[i].cells[11].innerText = d[d.length - 1];
+                    }
+                    dataPtr++;
+                }
+            }
+        }
+        saveData();
+    }
+
+    function deleteRowAt(btn) {
+        const row = btn.closest('tr');
+        if (isLocked(row)) return alert("Cannot delete a locked row.");
+        
+        const tbody = row.parentNode;
+        const rows = Array.from(tbody.rows);
+        const idx = row.sectionRowIndex;
+        const isLeftAction = btn.closest('td').cellIndex === 0;
+
+        saveStateS2();
+
+        let dataToShift = [];
+        for (let i = idx + 1; i < rows.length; i++) {
+            if (!isLocked(rows[i])) {
+                let rowData = [];
+                if (isLeftAction) {
+                    for (let j = 2; j <= 5; j++) rowData.push(rows[i].cells[j].innerText);
+                } else {
+                    for (let j = 6; j <= 11; j++) {
+                        rowData.push(rows[i].cells[j].querySelector('input')?.value || rows[i].cells[j].innerText);
+                    }
+                }
+                dataToShift.push(rowData);
+            }
+        }
+
+        let dataPtr = 0;
+        for (let i = idx; i < rows.length; i++) {
+            if (!isLocked(rows[i])) {
+                if (dataPtr < dataToShift.length) {
+                    let d = dataToShift[dataPtr];
+                    if (isLeftAction) {
+                        for (let j = 2; j <= 5; j++) rows[i].cells[j].innerText = d[j-2];
+                    } else {
+                        for (let j = 6; j <= 10; j++) rows[i].cells[j].querySelector('input').value = d[j-6];
+                        rows[i].cells[11].innerText = d[d.length - 1];
+                    }
+                    dataPtr++;
+                } else {
+                    if (isLeftAction) {
+                        for (let j = 2; j <= 5; j++) rows[i].cells[j].innerText = "";
+                    } else {
+                        for (let j = 6; j <= 10; j++) rows[i].cells[j].querySelector('input').value = "";
+                        rows[i].cells[11].innerText = "";
+                    }
+                }
+            }
+        }
+
+        if (tbody.rows.length > 50) {
+            tbody.deleteRow(-1);
+            updateRowNumbers(tbody);
+        }
+
+        saveData();
+    }
+
+    function createDynamicRow(tbody) {
+        const tr = tbody.insertRow(-1);
+        tr.insertCell(0).className = "action-col";
+        tr.cells[0].innerHTML = `<div class="btn-group"><button class="ins-btn" onclick="insertRowAt(this)">INS</button><button class="del-btn" onclick="deleteRowAt(this)">DEL</button></div>`;
+        tr.insertCell(1).className = "no-col";
+        for (let j = 2; j <= 11; j++) {
+            const td = tr.insertCell(j);
+            if (j >= 6 && j <= 10) {
+                td.className = "dropdown-cell";
+                const inp = document.createElement('input'); 
+                inp.setAttribute('list', j === 6 ? 'ricList' : (j === 7 ? 'oprtList' : 'crewList'));
+                setupBoxDelete(inp);
+                inp.addEventListener('focus', function() { if (!event.ctrlKey) clearSelection(); selectCell(this.parentElement); });
+                inp.addEventListener('input', function() { this.value = this.value.toUpperCase(); saveData(); });
+                td.appendChild(inp);
+            } else {
+                td.contentEditable = "true"; setupBoxDelete(td);
+                td.addEventListener('focus', function() { if (!event.ctrlKey) clearSelection(); selectCell(this); });
+                td.addEventListener('input', function() { 
+                    if (j === 3) {
+                        isLocked(this.parentElement);
+                        autoFillAirline(this); 
+                    }
+                    saveData(); 
+                });
+                if (j === 4) { td.className = "eta-col"; td.addEventListener('blur', function() { formatETA(this); }); td.addEventListener('keypress', e => { if (!/[0-9]/.test(e.key)) e.preventDefault(); }); }
+            }
+        }
+        const trAction2 = tr.insertCell(12);
+        trAction2.className = "action-col";
+        trAction2.innerHTML = `<div class="btn-group"><button class="ins-btn" onclick="insertRowAt(this)">INS</button><button class="del-btn" onclick="deleteRowAt(this)">DEL</button></div>`;
+    }
+
+    function updateRowNumbers(tbody) { for (let i = 0; i < tbody.rows.length; i++) { tbody.rows[i].cells[1].innerText = i + 1; } }
+
+    window.onload = function() {
+        const s1 = document.getElementById('sheet1Body');
+        for (let i = 1; i <= 15; i++) {
+            const tr = s1.insertRow(); tr.insertCell(0).innerText = i;
+            for (let j = 1; j <= 6; j++) {
+                const td = tr.insertCell(j); if(j !== 2 && j !== 4 && j !== 6) { td.contentEditable = "true"; setupBoxDelete(td); }
+                td.addEventListener('focus', saveStateS1); td.addEventListener('input', saveData);
+            }
+        }
+        const s2 = document.getElementById('sheet2Body');
+        for (let i = 0; i < 50; i++) createDynamicRow(s2);
+        updateRowNumbers(s2);
+        const s3 = document.getElementById('sheet3Body');
+        const labs = ["TIME", "OPERATOR", "TIME", "OPERATOR"];
+        for (let i = 0; i < 4; i++) {
+            const tr = s3.insertRow(); const lTd = tr.insertCell(0); lTd.innerText = labs[i]; lTd.className = "label-col";
+            for (let j = 1; j < 5; j++) { const td = tr.insertCell(j); td.contentEditable = "true"; setupBoxDelete(td); td.addEventListener('input', saveData); }
+        }
+        loadData();
+    };
+</script>
+</body>
+</html>
